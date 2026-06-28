@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue';
 import { createMock, deleteMock, getMocks } from './api/mock';
 import type { METHODS, MockApi } from './types/mock';
+import JsonEditor from './components/JsonEditor.vue';
 
 const show = ref(false);
 const list = ref<MockApi[]>([]);
@@ -33,17 +34,23 @@ async function submit() {
     throw new Error('Invalid Method');
   }
 
-  await createMock({
-    method: form.value.method,
-    path: form.value.path,
-    response: JSON.parse(form.value.response),
-  });
+  try {
+    const parsed = JSON.parse(form.value.response);
 
-  show.value = false;
+    await createMock({
+      method: form.value.method,
+      path: form.value.path,
+      response: parsed,
+    });
 
-  form.value = getDefaultMock();
+    show.value = false;
 
-  load();
+    form.value = getDefaultMock();
+
+    load();
+  } catch (e) {
+    alert(`JSON格式错误: ${e}`);
+  }
 }
 
 async function remove(id: number) {
@@ -86,7 +93,8 @@ onMounted(load);
       </el-form-item>
 
       <el-form-item label="Response">
-        <el-input type="textarea" rows="8" v-model="form.response" />
+        <!-- <el-input type="textarea" rows="8" v-model="form.response" /> -->
+        <JsonEditor v-model="form.response" style="width: 100%" />
       </el-form-item>
     </el-form>
 
