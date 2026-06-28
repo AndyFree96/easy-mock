@@ -38,6 +38,36 @@ app.get('/mock/list', (req, res) => {
   );
 });
 
+app.get('/mock/test', async (req, res) => {
+  const { path, method } = req.query;
+
+  const start = Date.now();
+
+  const api = db
+    .prepare(
+      `
+    SELECT * FROM mock_api
+    WHERE path=? AND method=?
+    `,
+    )
+    .get(path, method);
+
+  if (!api) {
+    return res.status(404).json({
+      error: 'Not Found',
+    });
+  }
+
+  const duration = Date.now() - start;
+
+  res.json({
+    path,
+    method,
+    response: JSON.parse(api.response),
+    time: duration,
+  });
+});
+
 app.get('/mock/:id', (req, res) => {
   const id = req.params.id;
   const row = db.prepare(`SELECT * FROM mock_api WHERE id=?`).get(id);

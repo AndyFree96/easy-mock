@@ -10,6 +10,8 @@ export interface MockApi {
   path: string;
 
   createdAt?: string;
+
+  duration?: number;
 }
 
 export interface CreateMockDto {

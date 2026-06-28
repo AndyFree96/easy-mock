@@ -20,3 +20,12 @@ export function deleteMock(id: number) {
 export function getMock(id: number) {
   return http.get<MockApi>(`/mock/${id}`);
 }
+
+export function testMock(path: string, method: string) {
+  return http.get<MockApi>(`/mock/test`, {
+    params: {
+      path,
+      method,
+    },
+  });
+}
