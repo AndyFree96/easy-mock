@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { MockApi, CreateMockDto } from '@/types/mock';
+import type { MockApi, CreateMockDto, LogResponse } from '@/types/mock';
 
 const http = axios.create({
   baseURL: 'http://localhost:3000',
@@ -28,4 +28,8 @@ export function testMock(path: string, method: string) {
       method,
     },
   });
+}
+
+export function getLogs() {
+  return http.get<LogResponse>(`/mock/logs`);
 }

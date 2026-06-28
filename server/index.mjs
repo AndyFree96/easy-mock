@@ -9,6 +9,34 @@ const mocks = [];
 app.use(cors());
 app.use(express.json());
 
+app.use((req, res, next) => {
+  const start = Date.now();
+
+  const api = db
+    .prepare(
+      `SELECT * from mock_api
+    WHERE path=? AND method=?
+    `,
+    )
+    .get(req.path, req.method);
+
+  if (api) {
+    res.json(JSON.parse(api.response));
+
+    const duration = Date.now() - start;
+
+    db.prepare(
+      `
+      INSERT INTO request_log(method, path, status, time, ip) VALUES (?, ?, ?, ?, ?)
+      `,
+    ).run(req.method, req.path, 200, duration, req.ip);
+
+    return;
+  }
+
+  next();
+});
+
 app.post('/mock/create', (req, res) => {
   const { method, path, response } = req.body;
 
@@ -64,7 +92,24 @@ app.get('/mock/test', async (req, res) => {
     path,
     method,
     response: JSON.parse(api.response),
-    time: duration,
+    duration,
+  });
+});
+
+app.get('/mock/logs', (req, res) => {
+  const logs = db
+    .prepare(
+      `
+      SELECT * FROM request_log
+      ORDER BY id DESC
+      LIMIT 100
+    `,
+    )
+    .all();
+
+  res.json({
+    message: 'success',
+    data: logs,
   });
 });
 
@@ -90,22 +135,6 @@ app.delete('/mock/:id', (req, res) => {
   res.json({
     success: true,
   });
-});
-
-app.use((req, res, next) => {
-  const api = db
-    .prepare(
-      `SELECT * from mock_api
-    WHERE path=? AND method=?
-    `,
-    )
-    .get(req.path, req.method);
-
-  if (api) {
-    return res.json(JSON.parse(api.response));
-  }
-
-  next();
 });
 
 app.listen(PORT, () => {

@@ -21,3 +21,18 @@ export interface CreateMockDto {
 
   response: Record<string, unknown>;
 }
+
+export interface LogItem {
+  id?: number;
+  path: string;
+  method: string;
+  status: number;
+  time: number;
+  ip: string;
+  timestamp: string;
+}
+
+export interface LogResponse {
+  message: string;
+  data: LogItem[];
+}

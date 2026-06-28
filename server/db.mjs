@@ -12,4 +12,16 @@ db.exec(`
   )
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS request_log(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    method TEXT,
+    path TEXT,
+    status INTEGER,
+    time INTEGER,
+    ip TEXT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+  `);
+
 export default db;

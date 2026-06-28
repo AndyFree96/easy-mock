@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
-import { createMock, deleteMock, getMocks, testMock } from './api/mock';
-import type { METHODS, MockApi } from './types/mock';
+import {
+  createMock,
+  deleteMock,
+  getLogs,
+  getMocks,
+  testMock,
+} from './api/mock';
+import type { LogItem, METHODS, MockApi } from './types/mock';
 import JsonEditor from './components/JsonEditor.vue';
 
 const show = ref(false);
@@ -9,6 +15,7 @@ const list = ref<MockApi[]>([]);
 const form = ref(getDefaultMock());
 const testResult = ref<MockApi>();
 const testDialog = ref(false);
+const logs = ref<LogItem[]>();
 
 function getDefaultMock() {
   return {
@@ -22,7 +29,7 @@ function isMethod(value: string): value is METHODS {
   return ['GET', 'POST', 'PUT', 'DELETE'].includes(value);
 }
 
-async function load() {
+async function loadMocks() {
   try {
     const response = await getMocks();
     list.value = response.data;
@@ -49,7 +56,7 @@ async function submit() {
 
     form.value = getDefaultMock();
 
-    load();
+    loadMocks();
   } catch (e) {
     alert(`JSON格式错误: ${e}`);
   }
@@ -58,7 +65,7 @@ async function submit() {
 async function remove(id: number) {
   await deleteMock(id);
 
-  load();
+  loadMocks();
 }
 
 async function test(row: MockApi) {
@@ -67,7 +74,13 @@ async function test(row: MockApi) {
   testDialog.value = true;
 }
 
-onMounted(load);
+async function loadLogs() {
+  const response = await getLogs();
+  logs.value = response.data.data;
+}
+
+onMounted(loadMocks);
+onMounted(loadLogs);
 </script>
 
 <template>
@@ -85,6 +98,18 @@ onMounted(load);
           <el-button type="success" @click="test(scope.row)"> 测试 </el-button>
         </template>
       </el-table-column>
+    </el-table>
+
+    <el-button style="margin-top: 20px" type="primary" @click="loadLogs"
+      >查看日志</el-button
+    >
+    <el-table :data="logs" style="margin-top: 20px">
+      <el-table-column prop="method" label="Method"></el-table-column>
+      <el-table-column prop="path" label="Path"></el-table-column>
+      <el-table-column prop="status" label="Status"></el-table-column>
+      <el-table-column prop="time" label="Time(ms)"></el-table-column>
+      <el-table-column prop="ip" label="IP"></el-table-column>
+      <el-table-column prop="timestamp" label="TimeStamp"></el-table-column>
     </el-table>
   </div>
 
