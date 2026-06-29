@@ -1,154 +1,159 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
-import {
-  createMock,
-  deleteMock,
-  getLogs,
-  getMocks,
-  testMock,
-} from './api/mock';
-import type { LogItem, METHODS, MockApi } from './types/mock';
-import JsonEditor from './components/JsonEditor.vue';
+import MockList from './components/MockList.vue';
+import MockForm from './components/MockForm.vue';
+import LogPanel from './components/LogPanel.vue';
+import TestDialog from './components/TestDialog.vue';
+import StatsPanel from './components/StatsPanel.vue';
+import { useMocks } from './composables/useMocks';
+import { useLogs } from './composables/useLogs';
+import { useDark, useToggle } from '@vueuse/core';
 
-const show = ref(false);
-const list = ref<MockApi[]>([]);
-const form = ref(getDefaultMock());
-const testResult = ref<MockApi>();
-const testDialog = ref(false);
-const logs = ref<LogItem[]>();
+const mocks = useMocks();
+const logs = useLogs();
+const activeTab = ref('mocks');
+const isDark = useDark();
+const toggleDark = useToggle(isDark);
 
-function getDefaultMock() {
-  return {
-    method: 'GET',
-    path: '',
-    response: '{}',
-  };
+function onMockSearch(query: string) {
+  mocks.search(query);
 }
 
-function isMethod(value: string): value is METHODS {
-  return ['GET', 'POST', 'PUT', 'DELETE'].includes(value);
-}
-
-async function loadMocks() {
-  try {
-    const response = await getMocks();
-    list.value = response.data;
-  } catch {
-    list.value = [];
-  }
-}
-
-async function submit() {
-  if (!isMethod(form.value.method)) {
-    throw new Error('Invalid Method');
-  }
-
-  try {
-    const parsed = JSON.parse(form.value.response);
-
-    await createMock({
-      method: form.value.method,
-      path: form.value.path,
-      response: parsed,
-    });
-
-    show.value = false;
-
-    form.value = getDefaultMock();
-
-    loadMocks();
-  } catch (e) {
-    alert(`JSON格式错误: ${e}`);
-  }
-}
-
-async function remove(id: number) {
-  await deleteMock(id);
-
-  loadMocks();
-}
-
-async function test(row: MockApi) {
-  const response = await testMock(row.path, row.method);
-  testResult.value = response.data;
-  testDialog.value = true;
-}
-
-async function loadLogs() {
-  const response = await getLogs();
-  logs.value = response.data.data;
-}
-
-onMounted(loadMocks);
-onMounted(loadLogs);
+onMounted(() => {
+  mocks.load();
+  logs.load();
+});
 </script>
 
 <template>
-  <div class="container">
-    <h1>EasyMock</h1>
-    <el-button type="primary" @click="show = true">创建接口</el-button>
-    <el-table :data="list" style="margin-top: 20px">
-      <el-table-column prop="method" label="Method"></el-table-column>
-      <el-table-column prop="path" label="Path"></el-table-column>
-      <el-table-column label="操作">
-        <template #default="scope">
-          <el-button type="danger" @click="remove(scope.row.id)">
-            删除
-          </el-button>
-          <el-button type="success" @click="test(scope.row)"> 测试 </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="header-left">
+        <h1>EasyMock</h1>
+        <span class="app-subtitle">Mock API Server</span>
+      </div>
+      <div class="header-right">
+        <el-button size="small" @click="mocks.handleExport">Export</el-button>
+        <el-button size="small" @click="mocks.handleImport">Import</el-button>
+        <el-button size="small" @click="toggleDark()" circle>
+          {{ isDark ? '☀️' : '🌙' }}
+        </el-button>
+      </div>
+    </header>
 
-    <el-button style="margin-top: 20px" type="primary" @click="loadLogs"
-      >查看日志</el-button
-    >
-    <el-table :data="logs" style="margin-top: 20px">
-      <el-table-column prop="method" label="Method"></el-table-column>
-      <el-table-column prop="path" label="Path"></el-table-column>
-      <el-table-column prop="status" label="Status"></el-table-column>
-      <el-table-column prop="time" label="Time(ms)"></el-table-column>
-      <el-table-column prop="ip" label="IP"></el-table-column>
-      <el-table-column prop="timestamp" label="TimeStamp"></el-table-column>
-    </el-table>
+    <el-tabs v-model="activeTab">
+      <el-tab-pane label="Mock APIs" name="mocks">
+        <el-button
+          type="primary"
+          @click="mocks.openCreate"
+          style="margin-bottom: 12px"
+        >
+          Create Mock
+        </el-button>
+        <MockList
+          :list="mocks.list.value"
+          :loading="mocks.loading.value"
+          @delete="mocks.remove"
+          @test="mocks.test"
+          @copy="mocks.copyUrl"
+          @search="onMockSearch"
+          @edit="mocks.openEdit"
+          @toggle="mocks.toggle"
+        />
+      </el-tab-pane>
+
+      <el-tab-pane label="Request Logs" name="logs">
+        <LogPanel
+          :logs="logs.logs.value"
+          :loading="logs.loading.value"
+          :total="logs.total.value"
+          :page="logs.page.value"
+          :limit="logs.limit.value"
+          :methodFilter="logs.methodFilter.value"
+          @refresh="logs.load"
+          @update:page="logs.onPageChange"
+          @update:limit="logs.onPageSizeChange"
+          @update:methodFilter="
+            (v: string) => {
+              logs.methodFilter.value = v;
+            }
+          "
+          @filter="logs.onFilterChange"
+        />
+      </el-tab-pane>
+
+      <el-tab-pane label="Stats" name="stats">
+        <StatsPanel />
+      </el-tab-pane>
+    </el-tabs>
+
+    <MockForm
+      :visible="mocks.showForm.value"
+      :editing="mocks.editingId.value !== null"
+      :form="mocks.form.value"
+      :submitting="mocks.submitting.value"
+      @update:visible="
+        (v: boolean) => {
+          mocks.showForm.value = v;
+        }
+      "
+      @update:form="
+        (f) => {
+          mocks.form.value = f;
+        }
+      "
+      @submit="mocks.submit"
+    />
+
+    <TestDialog
+      :visible="mocks.testDialog.value"
+      :result="mocks.testResult.value"
+      @update:visible="
+        (v: boolean) => {
+          mocks.testDialog.value = v;
+        }
+      "
+    />
   </div>
-
-  <el-dialog v-model="show" title="创建 Mock">
-    <el-form>
-      <el-form-item label="Method">
-        <el-select v-model="form.method">
-          <el-option label="GET" value="GET" />
-          <el-option label="POST" value="POST" />
-        </el-select>
-      </el-form-item>
-
-      <el-form-item label="Path">
-        <el-input v-model="form.path" />
-      </el-form-item>
-
-      <el-form-item label="Response">
-        <!-- <el-input type="textarea" rows="8" v-model="form.response" /> -->
-        <JsonEditor v-model="form.response" style="width: 100%" />
-      </el-form-item>
-    </el-form>
-
-    <template #footer>
-      <el-button @click="submit"> 保存 </el-button>
-    </template>
-  </el-dialog>
-
-  <el-dialog v-model="testDialog" title="Mock测试结果">
-    <div>
-      <p><b>Path:</b> {{ testResult?.path }}</p>
-      <p><b>Method:</b> {{ testResult?.method }}</p>
-      <p><b>Duration:</b> {{ testResult?.duration }} ms</p>
-    </div>
-
-    <pre style="background: #111; color: #0f0; padding: 10px"
-      >{{ testResult?.response }}
- </pre
-    >
-  </el-dialog>
 </template>
 
-<style scoped></style>
+<style scoped>
+.app-shell {
+  background: var(--el-bg-color);
+  border-radius: 8px;
+  padding: 24px 28px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--el-border-color-light);
+}
+
+.header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.header-right {
+  display: flex;
+  gap: 8px;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--el-color-primary);
+}
+
+.app-subtitle {
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+</style>

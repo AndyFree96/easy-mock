@@ -11,6 +11,7 @@
     "type-check": "vue-tsc --build"
   },
   "dependencies": {
+    "@vueuse/core": "^14.3.0",
     "axios": "^1.18.1",
     "element-plus": "^2.14.2",
     "monaco-editor": "^0.55.1",
